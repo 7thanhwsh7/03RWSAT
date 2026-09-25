@@ -299,6 +299,11 @@
   .card label{display:block;text-align:left;font-family:var(--font-sans);font-size:12px;font-weight:600;color:#34495e;margin:0 30px 5px;}
   .card input{width:calc(100% - 60px);padding:12px 13px;border:1px solid #b8c6d5;border-radius:4px;font-family:var(--font-sans);font-size:14px;font-weight:400;margin:0 30px 15px;}
   .card input:focus{outline:3px solid rgba(26,115,186,.22);border-color:#0c4f8a;}
+  .card #nameInput{margin-bottom:7px;text-transform:uppercase;letter-spacing:.3px;}
+  .card #nameInput::placeholder{text-transform:none;letter-spacing:0;}
+  .card .name-hint{text-align:left;margin:0 30px 16px;font-family:var(--font-sans);font-size:11.5px;line-height:1.45;color:#61758a;}
+  .card .name-hint b{color:#14283d;font-weight:700;}
+  .card .name-hint .vi{font-size:11px;}
   .card .navctl.primary{width:calc(100% - 60px)!important;margin:10px 30px 30px!important;background:#0c4f8a;border-radius:4px;
     font-family:var(--font-sans);font-size:14px;font-weight:700;letter-spacing:.2px;}
   .card .navctl.primary:hover{background:#073b70;}
@@ -418,7 +423,8 @@
     <h2>SAT Reading &amp; Writing Practice</h2>
     <p style="color:var(--muted);font-size:13.5px;">Enter your name and class to begin.</p>
     <label for="nameInput">Full name</label>
-    <input type="text" id="nameInput" placeholder="Full name">
+    <input type="text" id="nameInput" placeholder="Full name" autocomplete="off" autocapitalize="characters" spellcheck="false">
+    <div class="name-hint">Write your name in <b>CAPITAL LETTERS</b>, <b>no accents</b>.<br><span class="vi">Viết tên <b>IN HOA</b>, <b>KHÔNG dấu</b>.</span></div>
     <label for="clsInput">Class</label>
     <input type="text" id="clsInput" placeholder="Class">
     <button class="navctl primary" style="width:100%;margin-top:6px;" onclick="startTest()">Start Test</button>
@@ -1960,8 +1966,38 @@ function submitReport(){
   alert("Thanks — your report has been sent.");
 }
 
+/* Tên học sinh: tự chuyển sang IN HOA, KHÔNG dấu ngay khi gõ (kể cả gõ
+   Telex/VNI bằng Unikey/EVKey hay bộ gõ của máy), để tên trên Sheet thống nhất. */
+function normalizeStudentName(str){
+  return String(str || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+    .toUpperCase()
+    .replace(/\s+/g, ' ');
+}
+(function initNameInput(){
+  const el = document.getElementById('nameInput');
+  if(!el) return;
+  let composing = false;
+  const apply = () => {
+    const before = el.value;
+    const after = normalizeStudentName(before);
+    if(after === before) return;
+    const pos = el.selectionStart;
+    // số ký tự trước con trỏ sau khi chuẩn hoá (bỏ dấu có thể làm thay đổi độ dài)
+    const newPos = pos == null ? after.length : normalizeStudentName(before.slice(0, pos)).length;
+    el.value = after;
+    try { el.setSelectionRange(newPos, newPos); } catch(e) {}
+  };
+  el.addEventListener('compositionstart', () => { composing = true; });
+  el.addEventListener('compositionend', () => { composing = false; apply(); });
+  el.addEventListener('input', e => { if(!composing && !e.isComposing) apply(); });
+  el.addEventListener('blur', () => { el.value = normalizeStudentName(el.value).trim(); });
+})();
+
 function startTest(){
-  studentName = document.getElementById('nameInput').value.trim();
+  studentName = normalizeStudentName(document.getElementById('nameInput').value).trim();
+  document.getElementById('nameInput').value = studentName;
   studentClass = document.getElementById('clsInput').value.trim();
   if(!studentName){ alert("Please enter your name."); return; }
   document.getElementById('startScreen').style.display = 'none';
